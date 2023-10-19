@@ -42,41 +42,36 @@ public class TelegramService extends TelegramLongPollingBot {
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
-            long chatId = update.getMessage().getChatId();
+            String chatId = update.getMessage().getChatId().toString();
             String userMessage = update.getMessage().getText();
-            String response;
-            if (handleCommand(userMessage) != null) {
-                response = handleCommand(userMessage);
+
+            SendMessage sendMessage = new SendMessage();
+            sendMessage.setChatId(chatId);
+
+            if (userMessage.startsWith("/")) {
+                handleCommand(userMessage, sendMessage);
             } else {
                 try {
-                    response = ChatGptService.getResponseFromChatGPT(userMessage);
+                    sendMessage.setText(ChatGptService.getResponseFromChatGPT(userMessage));
                 } catch (IOException e) {
-                    throw new RuntimeException(e);
+                    throw new RuntimeException("Ошибка при получении ответа от ChatGpt.", e);
                 }
             }
 
-            sendMessageToUser(chatId, response);
+            try {
+                execute(sendMessage);
+            } catch (TelegramApiException e) {
+                throw new RuntimeException("Ошибка при отправке сообщения.", e);
+            }
         }
     }
 
-    private void sendMessageToUser(long chatId, String message) {
-        SendMessage sendMessage = new SendMessage();
-        sendMessage.setChatId(String.valueOf(chatId));
-        sendMessage.setText(message);
-        try {
-            execute(sendMessage);
-        } catch (TelegramApiException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private String handleCommand(String userMessage) {
-        String command = null;
+    private void handleCommand(String userMessage, SendMessage sendMessage) {
         switch (userMessage) {
-            case "/start" -> command = "Привет! Я бот, который может общаться с ChatGPT.";
-            case "/faq" -> command = "Это ChatGPT версии 3.5\n" + "Не отправляйте сообщения начиная с '/'";
-            case "/help" -> command = "Это раздел помощи.";
+            case "/start" -> sendMessage.setText("Привет! Я бот, который может общаться с ChatGPT.");
+            case "/faq" -> sendMessage.setText("Это ChatGPT версии 3.5\n" + "Не отправляйте сообщения начиная с '/'");
+            case "/help" -> sendMessage.setText("Это раздел помощи.");
+            default -> sendMessage.setText("Неизвестная команда.");
         }
-        return command;
     }
 }
