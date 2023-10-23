@@ -11,8 +11,6 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
-import java.io.IOException;
-
 @Service
 public class TelegramService extends TelegramLongPollingBot {
 
@@ -51,11 +49,7 @@ public class TelegramService extends TelegramLongPollingBot {
             if (userMessage.startsWith("/")) {
                 handleCommand(userMessage, sendMessage);
             } else {
-                try {
-                    sendMessage.setText(ChatGptService.getResponseFromChatGPT(userMessage));
-                } catch (IOException e) {
-                    throw new RuntimeException("Ошибка при получении ответа от ChatGpt.", e);
-                }
+                sendMessage.setText(ChatGptService.getResponseFromChatGPT(userMessage));
             }
 
             try {

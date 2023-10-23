@@ -4,43 +4,38 @@ import com.example.telegrambot.Model.ChatGpt;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import org.springframework.web.client.RestTemplate;
 
 @Service
 public class ChatGptService {
 
     private static ChatGpt chatGpt;
-    public ChatGptService(ChatGpt chatGpt) {
+    private static RestTemplate restTemplate;
+
+    @Autowired
+    ChatGptService(ChatGpt chatGpt, RestTemplate restTemplate) {
         ChatGptService.chatGpt = chatGpt;
+        ChatGptService.restTemplate = restTemplate;
     }
 
-    public static String getResponseFromChatGPT(String userMessage) throws IOException {
-        final URL url = new URL(chatGpt.getChatGptApiUrl());
-        HttpURLConnection con = (HttpURLConnection) url.openConnection();
-        con.setRequestMethod("POST");
-            con.setRequestProperty("Authorization", "Bearer " + chatGpt.getChatGptApiKey());
-            con.setRequestProperty("Content-Type", "application/json");
+    public static String getResponseFromChatGPT(String userMessage) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(chatGpt.getChatGptApiKey());
 
         String postData = "{\"model\": \"gpt-3.5-turbo\", \"messages\": [{\"role\": \"system\", \"content\": \"You are a helpful assistant.\"}, {\"role\": \"user\", \"content\": \"" + userMessage + "\"}]}";
 
-        con.setDoOutput(true);
-        con.getOutputStream().write(postData.getBytes());
+        HttpEntity<String> requestEntity = new HttpEntity<>(postData, headers);
 
-        BufferedReader reader = new BufferedReader(new InputStreamReader(con.getInputStream()));
-        StringBuilder response = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            response.append(line);
-        }
-        reader.close();
+        ResponseEntity<String> responseEntity = restTemplate.postForEntity(chatGpt.getChatGptApiUrl(), requestEntity, String.class);
 
-        return parseResponse(response.toString());
+        return parseResponse(responseEntity.getBody());
     }
 
     private static String parseResponse(String response) {
@@ -53,7 +48,7 @@ public class ChatGptService {
                 return message.getString("content").trim();
             }
         } catch (JSONException e) {
-            e.printStackTrace();
+            throw new RuntimeException("Ошибка парсинга ответа.", e);
         }
         return "Ошибка при обработке ответа от ChatGPT.";
     }
